@@ -1,0 +1,7 @@
+#!/bin/bash
+
+
+dd if=/dev/zero of=/dev/sdi bs=8192 count=10 conv=notrunc
+# parted /dev/sdi mklabel gpt mkpart p1 ext4 64s 67108800s
+
+parted -a optimal /dev/sdi mklabel gpt mkpart primary 0% 250GB

@@ -1,49 +1,62 @@
 #!/bin/bash
 
-# Disk /dev/sdc: 8 TiB, 8796093022208 bytes, 2147483648 sectors
-# Disk /dev/sdg: 2 TiB, 2199023255552 bytes, 536870912 sectors
-# Disk /dev/sdf: 1 TiB, 1099511627776 bytes, 268435456 sectors
-# Disk /dev/sde: 512 GiB, 549755813888 bytes, 134217728 sectors
-# Disk /dev/sdd: 256 GiB, 274877906944 bytes, 67108864 sectors
+set -e
 
-function fio_test() {
-    fio -filename=$1 -direct=1  \
-    -ioengine=libaio \
-    -iodepth=1 \
-    -rw=randrw \
-    -rwmixwrite=50 \
-    -bs=$2 \
-    -numjobs=1 \
-    -runtime=120 \
-    -time_based \
-    -group_reporting \
-    -name=test_rw
-}
+. ./lib
 
-## Test 256G
 
-# Test 8T
-#for n in 32k 64k 128k; do
-#	fio_test /dev/sdc ${n} | tee fio.${n}.8t
-#done
+cat <<"EOF">/tmp/disks
+Disk /dev/sdg:256GiB, 274877906944 bytes, 67108864 sectors
+Disk /dev/sdf:512GiB, 549755813888 bytes, 134217728 sectors
+Disk /dev/sde:1TiB, 1099511627776 bytes, 268435456 sectors
+Disk /dev/sdc:2TiB, 2199023255552 bytes, 536870912 sectors
+Disk /dev/sdi:4TiB, 4398046511104 bytes, 1073741824 sectors
+Disk /dev/sdd:8TiB, 8796093022208 bytes, 2147483648 sectors
+Disk /dev/sdh:16TiB, 17592186044416 bytes, 4294967296 sectors
+EOF
 
-## Test 2T
-#for n in 32k 64k 128k; do
-#	fio_test /dev/sdg ${n} | tee fio.${n}.2t
-#done
-#
-## Test 1T
-#for n in 32k 64k 128k; do
-#	fio_test /dev/sdf ${n} | tee fio.${n}.1t
-#done
-#
-## Test 512G
-#for n in 32k 64k 128k; do
-#	fio_test /dev/sde ${n} | tee fio.${n}.512g
-#done
-#
-## Test 256G
-#for n in 32k 64k 128k; do
-#	fio_test /dev/sdd ${n} | tee fio.${n}.256g
-#done
-#
+# Test all the disks random write and random read
+for unit in 4k 8k 16k 32k 64k 128k; do
+  for n in `cat /tmp/disks | grep Disk | awk '{print $2}'`; do
+    disk=`echo ${n} | awk -F ":" '{print $1}'`
+    size=`echo ${n} | awk -F ":" '{print $2}'`
+    fio_test $disk ${unit} >${disk}-${size}-${unit}-randomwrite 2>&1 &
+  done
+  wait
+done
+
+# Test all the disks seq-write
+for unit in 4k 8k 16k 32k 64k 128k; do
+  for n in `cat /tmp/disks | grep Disk | awk '{print $2}'`; do
+    disk=`echo ${n} | awk -F ":" '{print $1}'`
+    size=`echo ${n} | awk -F ":" '{print $2}'`
+    write_test $disk ${unit} >${disk}-${size}-${unit}-seqwrite 2>&1 &
+  done
+  wait
+done
+
+
+# Test fixed 256G
+for unit in 4k 8k 16k 32k 64k 128k; do
+  for n in `cat /tmp/disks | grep Disk | awk '{print $2}'`; do
+    disk=`echo ${n} | awk -F ":" '{print $1}'`
+    size=`echo ${n} | awk -F ":" '{print $2}'`
+    dd if=/dev/zero of=${disk} bs=8192 count=10 conv=notrunc
+    parted -a optimal ${disk} mklabel gpt mkpart primary 0% 250GB
+    fio_test ${disk}1 ${unit} >${disk}-${size}-${unit}-256G-randomqwrite 2>&1 &
+  done
+  wait
+done
+
+
+# Test fixed 256G seq write
+for unit in 4k 8k 16k 32k 64k 128k; do
+  for n in `cat /tmp/disks | grep Disk | awk '{print $2}'`; do
+    disk=`echo ${n} | awk -F ":" '{print $1}'`
+    size=`echo ${n} | awk -F ":" '{print $2}'`
+    dd if=/dev/zero of=${disk} bs=8192 count=10 conv=notrunc
+    parted -a optimal ${disk} mklabel gpt mkpart primary 0% 250GB
+    write_test ${disk}1 ${unit} >${disk}-${size}-${unit}-256G-seqwrite 2>&1 &
+  done
+  wait
+done
