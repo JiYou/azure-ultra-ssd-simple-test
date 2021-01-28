@@ -20,6 +20,7 @@ for unit in 4k 8k 16k 32k 64k 128k; do
   for n in `cat /tmp/disks | grep Disk | awk '{print $2}'`; do
     disk=`echo ${n} | awk -F ":" '{print $1}'`
     size=`echo ${n} | awk -F ":" '{print $2}'`
+    echo fio_test $disk ${unit} ${disk}-${size}-${unit}-randomwrite
     fio_test $disk ${unit} >${disk}-${size}-${unit}-randomwrite 2>&1 &
   done
   wait
@@ -30,6 +31,7 @@ for unit in 4k 8k 16k 32k 64k 128k; do
   for n in `cat /tmp/disks | grep Disk | awk '{print $2}'`; do
     disk=`echo ${n} | awk -F ":" '{print $1}'`
     size=`echo ${n} | awk -F ":" '{print $2}'`
+    echo fio_test $disk ${unit} ${disk}-${size}-${unit}-seqwrite
     write_test $disk ${unit} >${disk}-${size}-${unit}-seqwrite 2>&1 &
   done
   wait
@@ -43,6 +45,7 @@ for unit in 4k 8k 16k 32k 64k 128k; do
     size=`echo ${n} | awk -F ":" '{print $2}'`
     dd if=/dev/zero of=${disk} bs=8192 count=10 conv=notrunc
     parted -a optimal ${disk} mklabel gpt mkpart primary 0% 250GB
+    echo fio_test $disk ${unit} ${disk}-${size}-${unit}-256G-randomqwrite
     fio_test ${disk}1 ${unit} >${disk}-${size}-${unit}-256G-randomqwrite 2>&1 &
   done
   wait
@@ -56,6 +59,7 @@ for unit in 4k 8k 16k 32k 64k 128k; do
     size=`echo ${n} | awk -F ":" '{print $2}'`
     dd if=/dev/zero of=${disk} bs=8192 count=10 conv=notrunc
     parted -a optimal ${disk} mklabel gpt mkpart primary 0% 250GB
+    echo fio_test $disk ${unit} ${disk}-${size}-${unit}-256G-seqwrite
     write_test ${disk}1 ${unit} >${disk}-${size}-${unit}-256G-seqwrite 2>&1 &
   done
   wait
